@@ -51,7 +51,7 @@ public class PhotoshootViewerActivity extends FragmentActivity implements Loader
     public void onLoadFinished(Loader<Cursor> loader, Cursor cursor) {
         mCursor = cursor;
         mCount = cursor.getCount();
-        mSeekBar.setMax(mCount);
+        mSeekBar.setMax(mCount - 1);
     }
 
     @Override
