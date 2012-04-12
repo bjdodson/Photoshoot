@@ -17,6 +17,15 @@
                 <category android:name="musubi.intent.category.MENU" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".PhotoshootViewerActivity"
+            android:label="@string/app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <data android:mimeType="vnd.musubi.obj/album" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

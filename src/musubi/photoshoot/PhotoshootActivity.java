@@ -57,7 +57,6 @@ public class PhotoshootActivity extends Activity implements OnClickListener {
             button.setText("Start shooting");
             mShooting = false;
         }
-        
     }
 
     void doNotification() {
@@ -88,12 +87,10 @@ public class PhotoshootActivity extends Activity implements OnClickListener {
 
     void launchCamera() {
         try {
-            Log.e(TAG, "trying...");
             Intent camera = new Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA);
             camera.addCategory(Intent.CATEGORY_DEFAULT);
             startActivity(camera);
         } catch (ActivityNotFoundException e) {
-            Log.e(TAG, "missed", e);
             Intent launchCamera = new Intent(Intent.ACTION_CAMERA_BUTTON);
             launchCamera.addCategory(Intent.CATEGORY_DEFAULT);
             KeyEvent event = new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CAMERA);
