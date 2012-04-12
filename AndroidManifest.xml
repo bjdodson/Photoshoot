@@ -22,7 +22,7 @@
             android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
-                <data android:mimeType="vnd.musubi.obj/album" />
+                <data android:mimeType="vnd.musubi.obj/flipbook" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

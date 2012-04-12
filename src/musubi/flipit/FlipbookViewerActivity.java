@@ -42,7 +42,7 @@ public class FlipbookViewerActivity extends FragmentActivity implements LoaderCa
         Uri uri = mAlbum.getSubfeed().getObjectsUri();
         String[] projection = new String[] { DbObj.COL_ID, DbObj.COL_RAW };
         String selection = "type = ?";
-        String[] selectionArgs = new String[] { "picture" };
+        String[] selectionArgs = new String[] { FlipbookCreatorActivity.TYPE_PICTURE };
         String sortOrder = DbObj.COL_INT_KEY + " asc," + DbObj.COL_ID + " asc";
         return new CursorLoader(this, uri, projection, selection, selectionArgs, sortOrder);
     }
@@ -69,11 +69,9 @@ public class FlipbookViewerActivity extends FragmentActivity implements LoaderCa
 
     @Override
     public void onStartTrackingTouch(SeekBar seekBar) {
-
     }
 
     @Override
     public void onStopTrackingTouch(SeekBar seekBar) {
-        
     }
 }

@@ -34,8 +34,11 @@ import android.widget.Button;
 
 public class FlipbookCreatorActivity extends Activity implements OnClickListener {
     final static Map<Uri, CameraContentObserver> mCameraObservers = new HashMap<Uri, CameraContentObserver>();
-    static final String TAG = "Photoshoot";
-    static final int PHOTOSHOOT_ID = 2;
+    static final String TAG = "FlipIt";
+    static final int FLIPIT_ID = 2;
+
+    static final String TYPE_FLIPBOOK = "flipbook";
+    static final String TYPE_PICTURE = "picture";
 
     Musubi mMusubi;
     boolean mShooting;
@@ -61,13 +64,13 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
 
     void doNotification() {
         int icon = android.R.drawable.ic_menu_camera;
-        CharSequence tickerText = "New photo shoot.";
+        CharSequence tickerText = "New flipbook.";
         long when = System.currentTimeMillis();
         Notification notification = new Notification(icon, tickerText, when);
 
         /** User notification **/
-        CharSequence contentTitle = "Photo Shoot";
-        CharSequence contentText = "Sharing photos. Click to end photoshoot.";
+        CharSequence contentTitle = "Flip-It";
+        CharSequence contentText = "Capturing flipbook. Click to stop.";
         Intent notifyIntent = new Intent(this, FlipbookCreatorActivity.class);
         notifyIntent.putExtra(Musubi.EXTRA_FEED_URI, mMusubi.getFeed().getUri());
         notifyIntent.putExtra(Musubi.EXTRA_OBJ_URI, mAlbumUri);
@@ -77,12 +80,12 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
         notification.setLatestEventInfo(this, contentTitle, contentText, contentIntent);
         notification.flags = Notification.FLAG_ONGOING_EVENT | Notification.FLAG_NO_CLEAR;
         NotificationManager nm = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-        nm.notify(PHOTOSHOOT_ID, notification);
+        nm.notify(FLIPIT_ID, notification);
     }
 
     void cancelNotification() {
         NotificationManager nm = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-        nm.cancel(PHOTOSHOOT_ID);
+        nm.cancel(FLIPIT_ID);
     }
 
     void launchCamera() {
@@ -102,11 +105,20 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
     Obj createAlbumObj() {
         JSONObject meta = new JSONObject();
         try {
-            meta.put(Obj.FIELD_RENDER_TYPE, Obj.RENDER_LATEST);
+            StringBuilder html = new StringBuilder();
+            html.append("<span style=\"background-color:#8bc7e1;\">F</span>")
+                .append("<span style=\"background-color:#ccdf8d;\">l</span>")
+                .append("<span style=\"background-color:#f3dd7a;\">i</span>")
+                .append("<span style=\"background-color:#cc5086;\">p</span>")
+                .append("<span style=\"background-color:#ffffff;\">-</span>")
+                .append("<span style=\"background-color:#a374a0;\">I</span>")
+                .append("<span style=\"background-color:#eec630;\">t</span>")
+                .append("<span style=\"background-color:#5e90b1;\">!</span>");
+            meta.put(Obj.FIELD_HTML, html.toString());
         } catch (JSONException e) {
             throw new IllegalStateException("Bad json library");
         }
-        return new MemObj("album", meta);
+        return new MemObj(TYPE_FLIPBOOK, meta);
     }
 
     @Override
@@ -143,6 +155,7 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
     class CameraContentObserver extends ContentObserver {
         private Uri mmAlbumUri;
         private Uri mmLastShared;
+        private int mPictureCount = 0;
 
         public CameraContentObserver(Uri albumUri) {
             super(new Handler(getMainLooper()));
@@ -163,7 +176,7 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
                 UriImage image = new UriImage(FlipbookCreatorActivity.this, photo);
                 JSONObject meta = new JSONObject();
                 byte[] data = image.getImageThumbnailData();
-                Obj obj = new MemObj("picture", meta, data);
+                Obj obj = new MemObj(TYPE_PICTURE, meta, data, mPictureCount++);
                 mMusubi.objForUri(mmAlbumUri).getSubfeed().postObj(obj);
 
                 /** TODO: Put in the Corral **/
