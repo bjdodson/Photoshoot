@@ -1,4 +1,4 @@
-package musubi.photoshoot;
+package musubi.flipit;
 
 import mobisocial.socialkit.musubi.DbObj;
 import mobisocial.socialkit.musubi.Musubi;
@@ -14,7 +14,7 @@ import android.support.v4.content.Loader;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 
-public class PhotoshootViewerActivity extends FragmentActivity implements LoaderCallbacks<Cursor>,
+public class FlipbookViewerActivity extends FragmentActivity implements LoaderCallbacks<Cursor>,
         SeekBar.OnSeekBarChangeListener {
     DbObj mAlbum;
     Cursor mCursor;

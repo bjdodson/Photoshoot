@@ -1,4 +1,4 @@
-package musubi.photoshoot;
+package musubi.flipit;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -32,7 +32,7 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 
-public class PhotoshootActivity extends Activity implements OnClickListener {
+public class FlipbookCreatorActivity extends Activity implements OnClickListener {
     final static Map<Uri, CameraContentObserver> mCameraObservers = new HashMap<Uri, CameraContentObserver>();
     static final String TAG = "Photoshoot";
     static final int PHOTOSHOOT_ID = 2;
@@ -68,7 +68,7 @@ public class PhotoshootActivity extends Activity implements OnClickListener {
         /** User notification **/
         CharSequence contentTitle = "Photo Shoot";
         CharSequence contentText = "Sharing photos. Click to end photoshoot.";
-        Intent notifyIntent = new Intent(this, PhotoshootActivity.class);
+        Intent notifyIntent = new Intent(this, FlipbookCreatorActivity.class);
         notifyIntent.putExtra(Musubi.EXTRA_FEED_URI, mMusubi.getFeed().getUri());
         notifyIntent.putExtra(Musubi.EXTRA_OBJ_URI, mAlbumUri);
         PendingIntent contentIntent = PendingIntent.getActivity(this,
@@ -160,7 +160,7 @@ public class PhotoshootActivity extends Activity implements OnClickListener {
                 }
 
                 mmLastShared = photo;
-                UriImage image = new UriImage(PhotoshootActivity.this, photo);
+                UriImage image = new UriImage(FlipbookCreatorActivity.this, photo);
                 JSONObject meta = new JSONObject();
                 byte[] data = image.getImageThumbnailData();
                 Obj obj = new MemObj("picture", meta, data);
