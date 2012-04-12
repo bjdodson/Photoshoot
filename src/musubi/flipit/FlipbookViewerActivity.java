@@ -42,7 +42,7 @@ public class FlipbookViewerActivity extends FragmentActivity implements LoaderCa
         Uri uri = mAlbum.getSubfeed().getObjectsUri();
         String[] projection = new String[] { DbObj.COL_ID, DbObj.COL_RAW };
         String selection = "type = ?";
-        String[] selectionArgs = new String[] { FlipbookCreatorActivity.TYPE_PICTURE };
+        String[] selectionArgs = new String[] { FlipbookCreatorActivity.TYPE_IMAGE };
         String sortOrder = DbObj.COL_INT_KEY + " asc," + DbObj.COL_ID + " asc";
         return new CursorLoader(this, uri, projection, selection, selectionArgs, sortOrder);
     }
@@ -61,6 +61,9 @@ public class FlipbookViewerActivity extends FragmentActivity implements LoaderCa
 
     @Override
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+        if (mCount == 0) {
+            return;
+        }
         mCursor.moveToPosition(progress);
         byte[] data = mCursor.getBlob(1);
         Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);

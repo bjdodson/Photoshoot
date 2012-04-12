@@ -12,15 +12,15 @@ in the Musubi feed menu by filtering for an intent with action android.intent.ac
 category musubi.intent.category.MENU.
 
 When creating a flipbook, Flip-It hooks into Android's camera application to let the user quickly
-capture a series of photos. Each photo is shared in Musubi as an obj of type "picture". The flipbook
+capture a series of photos. Each photo is shared in Musubi as an obj of type "image". The flipbook
 is simply an obj with a series of such pictures as children. The flipbook itself has its own given
 type "flipbook".
 
 <pre>
    o [flipbook]
-    \___o [picture 1]
-    \___o [picture 2]
-    \___o [picture 3]
+    \___o [image 1]
+    \___o [image 2]
+    \___o [image 3]
 </pre>
 
 

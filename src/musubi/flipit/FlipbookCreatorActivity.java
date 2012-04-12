@@ -1,6 +1,7 @@
 package musubi.flipit;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,12 +18,16 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
+import android.content.ContentUris;
 import android.content.Intent;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+import android.provider.BaseColumns;
 import android.provider.MediaStore;
 import android.provider.MediaStore.Images;
 import android.provider.MediaStore.Images.ImageColumns;
@@ -33,12 +38,15 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 
 public class FlipbookCreatorActivity extends Activity implements OnClickListener {
-    final static Map<Uri, CameraContentObserver> mCameraObservers = new HashMap<Uri, CameraContentObserver>();
     static final String TAG = "FlipIt";
     static final int FLIPIT_ID = 2;
 
     static final String TYPE_FLIPBOOK = "flipbook";
-    static final String TYPE_PICTURE = "picture";
+    static final String TYPE_IMAGE = "image";
+
+    final static Map<Uri, CameraContentObserver> sCameraObservers = new HashMap<Uri, CameraContentObserver>();
+    final static LooperThread sLooper = new LooperThread();
+
 
     Musubi mMusubi;
     boolean mShooting;
@@ -125,20 +133,25 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
     public void onClick(View v) {
         Button button = (Button)findViewById(R.id.shoot);
         if (mShooting) {
-            for (Uri uri : mCameraObservers.keySet()) {
-                CameraContentObserver obs = mCameraObservers.get(uri);
+            for (Uri uri : sCameraObservers.keySet()) {
+                CameraContentObserver obs = sCameraObservers.get(uri);
                 getContentResolver().unregisterContentObserver(obs);   
             }
-            mCameraObservers.clear();
+            sCameraObservers.clear();
             cancelNotification();
             button.setText("Start shooting");
+
+            Intent view = new Intent(Intent.ACTION_VIEW);
+            view.setDataAndType(mAlbumUri, Musubi.mimeTypeFor(TYPE_FLIPBOOK));
+            startActivity(view);
+            finish();
         } else {
             if (mAlbumUri == null) {
                 Obj album = createAlbumObj();
                 mAlbumUri = mMusubi.getFeed().insert(album);
             }
             CameraContentObserver obs = new CameraContentObserver(mAlbumUri);
-            mCameraObservers.put(mAlbumUri, obs);
+            sCameraObservers.put(mAlbumUri, obs);
             getContentResolver().registerContentObserver(Images.Media.EXTERNAL_CONTENT_URI, true, obs);
             doNotification();
             launchCamera();
@@ -149,16 +162,15 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
 
     /**
      * Listen for newly captured images from the camera.
-     * @author bjdodson
-     *
      */
     class CameraContentObserver extends ContentObserver {
         private Uri mmAlbumUri;
         private Uri mmLastShared;
         private int mPictureCount = 0;
+        private final long mCaptureStartTime = new Date().getTime();
 
         public CameraContentObserver(Uri albumUri) {
-            super(new Handler(getMainLooper()));
+            super(sLooper.mHandler);
             mmAlbumUri = albumUri;
         }
 
@@ -176,23 +188,26 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
                 UriImage image = new UriImage(FlipbookCreatorActivity.this, photo);
                 JSONObject meta = new JSONObject();
                 byte[] data = image.getImageThumbnailData();
-                Obj obj = new MemObj(TYPE_PICTURE, meta, data, mPictureCount++);
+                Obj obj = new MemObj(TYPE_IMAGE, meta, data, mPictureCount++);
                 mMusubi.objForUri(mmAlbumUri).getSubfeed().postObj(obj);
 
-                /** TODO: Put in the Corral **/
-                // (currently handled in PictureObj)
+                Uri url = Images.Media.EXTERNAL_CONTENT_URI;
+                String where = BaseColumns._ID + "=" + ContentUris.parseId(photo);
+                getContentResolver().delete(url, where, null);
             } catch (IOException e) {
                 Log.e(TAG, "Error capturing photo", e);
             }
         };
 
         private Uri getLatestCameraPhoto() {
-            String selection = ImageColumns.BUCKET_DISPLAY_NAME + " = 'Camera'";
-            String[] selectionArgs = null;
-            String sort = ImageColumns._ID + " DESC LIMIT 1";
-            Cursor c = android.provider.MediaStore.Images.Media.query(getContentResolver(),
-                            Images.Media.EXTERNAL_CONTENT_URI, new String[] { ImageColumns._ID },
-                            selection, selectionArgs, sort);
+            String[] projection = new String[] { ImageColumns._ID };
+            String selection = ImageColumns.BUCKET_DISPLAY_NAME + " = 'Camera' AND "
+                    + ImageColumns.DATE_TAKEN + " > ?";
+            String[] selectionArgs = new String[] { Long.toString(mCaptureStartTime) };
+            String sort = ImageColumns.DATE_TAKEN + " DESC LIMIT 1";
+            Cursor c = MediaStore.Images.Media.query(getContentResolver(),
+                            Images.Media.EXTERNAL_CONTENT_URI, projection, selection,
+                            selectionArgs, sort);
             try {
                 int idx = c.getColumnIndex(ImageColumns._ID);
                 if (c.moveToFirst()) {
@@ -202,6 +217,24 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
             } finally {
                 c.close();
             }
+        }
+    }
+
+    /**
+     * A background looper for long-lasting operations.
+     */
+    static class LooperThread extends Thread {
+        public Handler mHandler;
+
+        public void run() {
+            Looper.prepare();
+
+            mHandler = new Handler() {
+                public void handleMessage(Message msg) {
+                }
+            };
+
+            Looper.loop();
         }
     }
 }
