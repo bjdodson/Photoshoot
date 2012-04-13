@@ -110,7 +110,7 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
         }
     }
 
-    Obj createAlbumObj() {
+    Obj createFlipbookObj() {
         JSONObject meta = new JSONObject();
         try {
             StringBuilder html = new StringBuilder();
@@ -147,7 +147,7 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
             finish();
         } else {
             if (mAlbumUri == null) {
-                Obj album = createAlbumObj();
+                Obj album = createFlipbookObj();
                 mAlbumUri = mMusubi.getFeed().insert(album);
             }
             CameraContentObserver obs = new CameraContentObserver(mAlbumUri);
