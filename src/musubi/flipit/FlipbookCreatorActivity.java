@@ -1,9 +1,8 @@
 package musubi.flipit;
 
 import java.io.IOException;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 import mobisocial.musubi.util.UriImage;
 import mobisocial.socialkit.Obj;
@@ -18,19 +17,17 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
 import android.content.ContentUris;
+import android.content.Context;
 import android.content.Intent;
-import android.database.ContentObserver;
-import android.database.Cursor;
+import android.content.IntentFilter;
+import android.content.IntentFilter.MalformedMimeTypeException;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
 import android.provider.BaseColumns;
 import android.provider.MediaStore;
 import android.provider.MediaStore.Images;
-import android.provider.MediaStore.Images.ImageColumns;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
@@ -44,9 +41,8 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
     static final String TYPE_FLIPBOOK = "flipbook";
     static final String TYPE_IMAGE = "image";
 
-    final static Map<Uri, CameraContentObserver> sCameraObservers = new HashMap<Uri, CameraContentObserver>();
-    final static LooperThread sLooper = new LooperThread();
-
+    final static Set<Uri> sFlipBooks = new HashSet<Uri>();
+    final BroadcastReceiver mNewPictureReceiver = new NewPictureReceiver();
 
     Musubi mMusubi;
     boolean mShooting;
@@ -133,11 +129,12 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
     public void onClick(View v) {
         Button button = (Button)findViewById(R.id.shoot);
         if (mShooting) {
-            for (Uri uri : sCameraObservers.keySet()) {
-                CameraContentObserver obs = sCameraObservers.get(uri);
-                getContentResolver().unregisterContentObserver(obs);   
+            sFlipBooks.clear();
+            try {
+                unregisterReceiver(mNewPictureReceiver);
+            } catch (IllegalArgumentException e) {
+                Log.w(TAG, "receiver wasn't registered", e);
             }
-            sCameraObservers.clear();
             cancelNotification();
             button.setText("Start shooting");
 
@@ -150,9 +147,17 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
                 Obj album = createFlipbookObj();
                 mAlbumUri = mMusubi.getFeed().insert(album);
             }
-            CameraContentObserver obs = new CameraContentObserver(mAlbumUri);
-            sCameraObservers.put(mAlbumUri, obs);
-            getContentResolver().registerContentObserver(Images.Media.EXTERNAL_CONTENT_URI, true, obs);
+            if (sFlipBooks.isEmpty()) {
+                try {
+                    IntentFilter filter = new IntentFilter();
+                    filter.addAction("com.android.camera.NEW_PICTURE");
+                    filter.addDataType("image/*");
+                    registerReceiver(mNewPictureReceiver, filter);
+                } catch (MalformedMimeTypeException e) {
+                    Log.e(TAG, "Mime fail", e);
+                }
+            }
+            sFlipBooks.add(mAlbumUri);
             doNotification();
             launchCamera();
             button.setText("Stop shooting");
@@ -161,80 +166,31 @@ public class FlipbookCreatorActivity extends Activity implements OnClickListener
     };
 
     /**
-     * Listen for newly captured images from the camera.
+     * Listen for NEW_PICTURE intent broadcasted from the camera.
      */
-    class CameraContentObserver extends ContentObserver {
-        private Uri mmAlbumUri;
-        private Uri mmLastShared;
-        private int mPictureCount = 0;
-        private final long mCaptureStartTime = new Date().getTime();
+    class NewPictureReceiver extends BroadcastReceiver {
+        int mPictureCount;
 
-        public CameraContentObserver(Uri albumUri) {
-            super(sLooper.mHandler);
-            mmAlbumUri = albumUri;
-        }
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Uri img = intent.getData();
+            if (img != null) {
+                try {
+                    UriImage image = new UriImage(FlipbookCreatorActivity.this, img);
+                    JSONObject meta = new JSONObject();
+                    byte[] data = image.getImageThumbnailData();
+                    Obj obj = new MemObj(TYPE_IMAGE, meta, data, mPictureCount++);
+                    for (Uri flip : sFlipBooks) {
+                        mMusubi.objForUri(flip).getSubfeed().postObj(obj);
+                    }
 
-        /**
-         * A new photo has been detected in the media store.
-         */
-        public void onChange(boolean selfChange) {
-            try {
-                Uri photo = getLatestCameraPhoto();
-                if (photo == null || photo.equals(mmLastShared)) {
-                    return;
+                    Uri url = Images.Media.EXTERNAL_CONTENT_URI;
+                    String where = BaseColumns._ID + "=" + ContentUris.parseId(img);
+                    getContentResolver().delete(url, where, null);
+                } catch (IOException e) {
+                    Log.e(TAG, "Error converting image", e);
                 }
-
-                mmLastShared = photo;
-                UriImage image = new UriImage(FlipbookCreatorActivity.this, photo);
-                JSONObject meta = new JSONObject();
-                byte[] data = image.getImageThumbnailData();
-                Obj obj = new MemObj(TYPE_IMAGE, meta, data, mPictureCount++);
-                mMusubi.objForUri(mmAlbumUri).getSubfeed().postObj(obj);
-
-                Uri url = Images.Media.EXTERNAL_CONTENT_URI;
-                String where = BaseColumns._ID + "=" + ContentUris.parseId(photo);
-                getContentResolver().delete(url, where, null);
-            } catch (IOException e) {
-                Log.e(TAG, "Error capturing photo", e);
             }
-        };
-
-        private Uri getLatestCameraPhoto() {
-            String[] projection = new String[] { ImageColumns._ID };
-            String selection = ImageColumns.BUCKET_DISPLAY_NAME + " = 'Camera' AND "
-                    + ImageColumns.DATE_TAKEN + " > ?";
-            String[] selectionArgs = new String[] { Long.toString(mCaptureStartTime) };
-            String sort = ImageColumns.DATE_TAKEN + " DESC LIMIT 1";
-            Cursor c = MediaStore.Images.Media.query(getContentResolver(),
-                            Images.Media.EXTERNAL_CONTENT_URI, projection, selection,
-                            selectionArgs, sort);
-            try {
-                int idx = c.getColumnIndex(ImageColumns._ID);
-                if (c.moveToFirst()) {
-                    return Uri.withAppendedPath(Images.Media.EXTERNAL_CONTENT_URI, c.getString(idx));
-                }
-                return null;
-            } finally {
-                c.close();
-            }
-        }
-    }
-
-    /**
-     * A background looper for long-lasting operations.
-     */
-    static class LooperThread extends Thread {
-        public Handler mHandler;
-
-        public void run() {
-            Looper.prepare();
-
-            mHandler = new Handler() {
-                public void handleMessage(Message msg) {
-                }
-            };
-
-            Looper.loop();
         }
     }
 }
